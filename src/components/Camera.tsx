@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { CSSProperties, Ref } from 'react';
 import { getFilter, type FilterId } from '../lib/filters';
 import type { CameraDevice, CameraStatus } from '../lib/useCamera';
 import Countdown from './Countdown';
@@ -14,7 +14,7 @@ interface Props {
   shotLabel: string;
   count: number | null;
   flashKey: number;
-  /** aspect ratio of a photo slot, used for the crop guide */
+  /** aspect ratio of a photo slot; the camera box takes this shape */
   aspect: number;
   videoRef: Ref<HTMLVideoElement>;
   devices: CameraDevice[];
@@ -65,7 +65,8 @@ export default function Camera(props: Props) {
   const msg = MESSAGES[status];
 
   return (
-    <div className="cam">
+    // the box is the same shape as the photo slot, so what you see is exactly what gets captured
+    <div className="cam" style={{ '--cam-aspect': aspect } as CSSProperties}>
       <FilterView
         className="cam-media"
         filter={filter}
@@ -74,10 +75,6 @@ export default function Camera(props: Props) {
         label={live ? 'Live camera preview' : 'Example photo of a cow, shown until the camera is on'}
         videoRef={videoRef}
       />
-
-      {live && (
-        <div className="cam-guide" style={{ aspectRatio: String(aspect) }} aria-hidden="true" />
-      )}
 
       <Countdown count={count} flashKey={flashKey} />
 

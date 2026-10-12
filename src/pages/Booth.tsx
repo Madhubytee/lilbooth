@@ -178,7 +178,7 @@ export default function Booth() {
               photos={photos}
               date={shotAt}
               assets={assets}
-              maxWidth={268}
+              maxWidth={240}
               maxHeight={540}
             />
           ) : (

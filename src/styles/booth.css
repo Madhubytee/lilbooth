@@ -43,14 +43,14 @@
   align-items: flex-start;
 }
 .booth-cam {
-  flex: 999 1 540px;
+  flex: 999 1 480px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 22px;
 }
 .booth-preview {
-  flex: 0 1 300px;
+  flex: 0 1 272px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -101,34 +101,18 @@
 .cam {
   position: relative;
   overflow: hidden;
-  height: 500px;
+  /* shaped like the photo slot (4:3 or square), never taller than 540px */
+  aspect-ratio: var(--cam-aspect, 4 / 3);
+  width: min(100%, calc(540px * var(--cam-aspect, 1.3333)));
+  margin: 0 auto;
   background: var(--cam);
   isolation: isolate;
-}
-@media (max-width: 640px) {
-  .cam {
-    height: auto;
-    aspect-ratio: 4 / 5;
-  }
+  transition: width 0.25s ease;
 }
 .cam-media {
   position: absolute !important;
   inset: 0;
 }
-.cam-guide {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  height: 100%;
-  max-width: 100%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 100vmax rgba(255, 255, 255, 0.32);
-  outline: 1px dashed rgba(255, 255, 255, 0.8);
-  outline-offset: -1px;
-  pointer-events: none;
-  z-index: 1;
-}
-
 .countdown {
   position: absolute;
   inset: 0;
