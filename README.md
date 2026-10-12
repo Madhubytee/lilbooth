@@ -1,8 +1,8 @@
 # lil booth
 
-A cute photobooth in your browser. Design a strip (filter, layout, frame, stickers, caption), take real photos with your webcam through a 3·2·1 countdown, then download the strip.
+A cute photobooth in your browser. Pick a filter, one of ten paper templates and one of six layouts, take real photos with your webcam through a 3·2·1 countdown, decorate the card with drag-and-drop stickers, then download or share it.
 
-Everything happens on your device. There's no backend, and photos are never uploaded.
+Everything happens on your device. There's no backend; photos only leave the device if you use the share button.
 
 ## Setup
 
@@ -24,23 +24,39 @@ npm run build    # typechecks and builds to dist/
 npm run preview  # serve the build locally
 ```
 
-`dist/` is a static site. Host it anywhere that serves https (Netlify, Vercel, Cloudflare Pages, GitHub Pages…). Point unknown routes at `index.html` so `/booth` and `/result` work on refresh.
+`dist/` is a static site. Host it anywhere that serves https (Netlify, Vercel, Cloudflare Pages, GitHub Pages…). Point unknown routes at `index.html` so `/booth` and `/result` work on refresh. The verification scripts and sample photos are not part of the build.
+
+## Verify the templates
+
+```bash
+npm run verify
+```
+
+Renders all 10 templates × 6 layouts with `@napi-rs/canvas` and the bundled fonts, checks geometry, symmetry, photo aspect ratios, default sticker pairs, shot mapping, 1800px/3600px export and PNG round-trips, plus lil booth's own checks (unmoved default stickers render exactly like the template's, blank captions/hidden dates). Output goes to `artifacts/` (gitignored): `template-contact-sheet.png` and `verification.json`. The sample portraits in `scripts/fixtures/samples` are AI-generated test fixtures.
+
+`scripts/configs.py` regenerates the template configs in `src/lib/templates/` if you change them there.
 
 ## How it fits together
 
 ```
 src/
   pages/        Home, Booth, Result
-  components/   Camera, FilterView, Countdown, DesignPanel, StripPreview, Demo, Sticker, Logo
+  components/   Camera, FilterView, Countdown, DesignPanel, CardCanvas, CardEditor,
+                StickerTray, ConfirmDialog, Demo, HeroCards, Logo
   lib/
+    templates/      10 template configs, layout engine, canvas renderer (renderCard)
+    card.ts         renderDesign(): filters + crop each photo, then renderCard. Used by every card on screen and every export
     filters.ts      filter definitions → CSS live preview + per-pixel canvas renderer
-    capture.ts      grab mirrored video frames, centre-crop to slot, cache filtered crops
-    renderStrip.ts  renderStrip(design, photos) → canvas (used for the preview AND the export)
-    frames.ts       frame themes drawn in canvas (polka, gingham, film sprockets, …)
-    stickers.ts     sticker shapes (the design's SVG paths) + die-cut raster
-    design.ts       layouts, strip geometry, date helpers
+    capture.ts      grab mirrored video frames, centre-crop to the layout's window, cache filtered crops
+    design.ts       design state, layouts/shot counts, date helpers
     useCamera.ts    permission states, device picker, track cleanup
-  state/booth.tsx   React context: design + photos (in memory only)
+    useStickerActions.tsx  add/reset/clear stickers, "switch template?" dialog
+  state/booth.tsx   React context: design + up to 8 photos (in memory only)
+  styles/fonts.css  @font-face for the bundled fonts (shared by UI and canvas)
+public/
+  stickers/     20 sticker PNGs
+  fonts/        Instrument Serif, DM Sans, Caveat, Courier-compatible mono + licenses
+scripts/        verify.mjs, configs.py, fixtures/samples
 ```
 
 ### Filters
@@ -52,16 +68,20 @@ Each filter is defined once as data (`lib/filters.ts`). It becomes:
 
 It doesn't use `ctx.filter` (Safari doesn't support it), so every browser gets the same export, and the export matches the preview.
 
+### Templates and layouts
+
+Templates are data (`src/lib/templates/*.ts`): colours, spacing, decorations and default stickers. Layouts are strip (4), trio (3), double strip (4, or 8 with different shots in each strip), double trio (3 or 6), grid (4) and big grid (6). Photos are kept when switching layouts, so extra shots aren't lost.
+
+lil booth's changes to the package renderer: a `hideDate` option, no placeholder caption (an empty caption leaves the band blank), and a per-sticker `masked` flag so template default stickers keep their face-protection clip (they never cover the middle 60% of a photo) until someone moves them.
+
+### Stickers
+
+Positions are stored as fractions of the card (`x`, `y` of width/height, `width` of card width), so they stay put at any preview size and at 1800px or 3600px export. Select a sticker to bring it to the front; drag to move, corner handle to resize, top handle to rotate, square button to delete. Two fingers pinch to resize and twist. Keyboard: focus the card, Enter cycles stickers, arrows nudge (Shift for bigger steps), + / − resize, [ ] rotate, Delete removes, Escape deselects. Drag from the tray onto the card (on touch, press and hold first).
+
 ### Photos
 
 Each shot keeps the unfiltered, mirrored full frame. The strip centre-crops it to the slot's aspect ratio at render time, so you can change the filter, frame, stickers or even the layout after shooting without reshooting.
 
-### Downloads
+### Download and share
 
-The result page saves the strip as `lilbooth-YYYY-MM-DD.png`, and can also save each photo on its own as `lilbooth-YYYY-MM-DD-photo-N.jpg`.
-
-| layout | 1x | exported PNG (2x) |
-|---|---|---|
-| strip (4 × 4:3) | 600 × 1884 | 1200 × 3768 |
-| grid (2 × 2 square) | 1200 × 1370 | 2400 × 2740 |
-| trio (3 × 6:5) | 600 × 1596 | 1200 × 3192 |
+The result page downloads the exact canvas shown on screen (1800px on the long side), or a 3600px version with "extra large". Share opens the share sheet on touch devices and downloads on desktop. Each photo can also be saved on its own. File names look like `lilbooth-2026-10-12.png`.
