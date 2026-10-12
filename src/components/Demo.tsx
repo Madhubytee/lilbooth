@@ -3,7 +3,6 @@ import { cssFilter, getFilter, type FilterId } from '../lib/filters';
 import { useReducedMotion } from '../lib/useReducedMotion';
 import { EXAMPLE_PHOTO, EXAMPLE_THUMB } from './Camera';
 import FilterView from './FilterView';
-import Sticker from './Sticker';
 
 const LEN = 32;
 const TICK = 480;
@@ -15,8 +14,9 @@ const FILTER_DEFS: { id: FilterId; chip: string }[] = [
   { id: 'film', chip: '#E6D5B5' },
 ];
 
+/** mini versions of four templates: clean white, blush polka, gingham, film negative */
 const FRAME_DEFS: CSSProperties[] = [
-  { background: '#FFFFFF', border: '1px solid #EEE7E8' },
+  { background: '#FFFFFF', boxShadow: 'inset 0 0 0 1px #E6DEDF' },
   {
     backgroundColor: '#FDE8ED',
     backgroundImage: 'radial-gradient(#F4A7B9 1.6px,transparent 2.1px)',
@@ -25,12 +25,13 @@ const FRAME_DEFS: CSSProperties[] = [
   {
     backgroundColor: '#FFFFFF',
     backgroundImage:
-      'repeating-linear-gradient(0deg,rgba(169,211,245,0.5) 0 4px,transparent 4px 8px),repeating-linear-gradient(90deg,rgba(169,211,245,0.5) 0 4px,transparent 4px 8px)',
+      'repeating-linear-gradient(0deg,rgba(244,167,185,0.35) 0 4px,transparent 4px 8px),repeating-linear-gradient(90deg,rgba(244,167,185,0.35) 0 4px,transparent 4px 8px)',
   },
-  { background: '#2B2326' },
+  { background: '#2A1E1A' },
 ];
 
-const STICKER_DOTS = ['#D9577A', '#FFE29A', '#F4A7B9', '#A9D3F5'];
+/** sticker chips; the timeline adds the bow (index 2) then the cherries (index 0) */
+const STICKER_CHIPS = ['07-cherries.png', '20-gold-star-charm.png', '01-silk-bow.png', '14-blue-butterfly.png'];
 
 /** different crops of the example photo so the strip looks like four poses */
 const POSES = ['34% 22%', '40% 28%', '30% 26%', '38% 20%'];
@@ -41,12 +42,12 @@ const CURSOR_MAP: Record<number, [number, number]> = {
 };
 const CLICK_TICKS = new Set([2, 4, 6, 8, 10, 24]);
 const ROW_TOP = [16 + 26 + 22, 16 + 26 + 22 + 84, 16 + 26 + 22 + 168];
-const FILE = 'lilbooth-strip.png';
+const FILE = 'lilbooth-card.png';
 
 const STEPS = [
   { id: 'design', num: '1', label: 'design it', at: 0 },
   { id: 'shoot', num: '2', label: 'shoot it', at: 12 },
-  { id: 'send', num: '3', label: 'save it', at: 19 },
+  { id: 'send', num: '3', label: 'save or share', at: 19 },
 ] as const;
 
 export default function Demo() {
@@ -124,7 +125,7 @@ export default function Demo() {
   const status =
     phase === 'design' ? 'designing your strip' : phase === 'shoot' ? 'shooting' : sentDone ? 'saved' : 'ready to save';
   const shotText = `shot ${Math.min(Math.max(taken, phase === 'shoot' ? 1 : 0), 4)} of 4`;
-  const note = t < 4 ? 'trying filters…' : t < 7 ? 'soft pink + polka frame' : 'adding a bow and a heart';
+  const note = t < 4 ? 'trying filters…' : t < 7 ? 'soft pink + blush polka' : 'adding a bow and cherries';
   const shootTitle = count ? 'get ready…' : taken >= 4 ? 'that’s a wrap' : 'smile!';
 
   return (
@@ -200,13 +201,13 @@ export default function Demo() {
                 <div className="demo-caption">{t >= 9 ? 'besties ♡' : ''}</div>
               </div>
               <div className="demo-bow" style={{ opacity: bowOn ? 1 : 0, transform: `scale(${bowOn ? 1 : 0.3})` }}>
-                <Sticker id="bow" color="#F4A7B9" accent="#D9577A" size={38} outline />
+                <img src="/stickers/01-silk-bow.png" alt="" width={38} height={38} style={{ objectFit: 'contain' }} />
               </div>
               <div
                 className="demo-heart"
                 style={{ opacity: heartOn ? 1 : 0, transform: `rotate(-14deg) scale(${heartOn ? 1 : 0.3})` }}
               >
-                <Sticker id="heart" color="#D9577A" size={26} outline />
+                <img src="/stickers/07-cherries.png" alt="" width={28} height={28} style={{ objectFit: 'contain' }} />
               </div>
             </div>
           </div>
@@ -250,7 +251,7 @@ export default function Demo() {
                 <div className="demo-row">
                   <span className="demo-label">stickers</span>
                   <div className="demo-grid">
-                    {STICKER_DOTS.map((c, i) => {
+                    {STICKER_CHIPS.map((c, i) => {
                       const on = (i === 2 && bowOn) || (i === 0 && heartOn);
                       return (
                         <div
@@ -265,7 +266,7 @@ export default function Demo() {
                             background: on ? '#FBF8F7' : '#FFFFFF',
                           }}
                         >
-                          <span style={{ width: 14, height: 14, background: c }} />
+                          <img src={`/stickers/${c}`} alt="" width={26} height={26} style={{ objectFit: 'contain' }} />
                         </div>
                       );
                     })}
@@ -289,18 +290,19 @@ export default function Demo() {
 
             {phase === 'send' && (
               <div className="demo-send">
-                <span className="demo-label">your strip</span>
+                <span className="demo-label">your card</span>
                 <div className="demo-input">{FILE}</div>
                 <div
                   className="demo-sendbtn"
                   style={{ background: t >= 23 ? '#D9577A' : '#2B2326', transform: `scale(${t === 24 ? 0.97 : 1})` }}
                 >
-                  {sentDone ? 'downloaded' : 'download'}
+                  {sentDone ? 'downloaded' : 'download png'}
                 </div>
+                <div className="demo-sharebtn">share</div>
                 {sentDone && (
                   <div className="demo-sent">
                     <span className="demo-sent-title">saved ♡</span>
-                    <span>check your downloads</span>
+                    <span>or share it straight from your phone</span>
                   </div>
                 )}
               </div>

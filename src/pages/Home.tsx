@@ -1,22 +1,21 @@
 import { useEffect, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { EXAMPLE_THUMB } from '../components/Camera';
 import Demo from '../components/Demo';
+import HeroCards from '../components/HeroCards';
 import Logo from '../components/Logo';
-import Sticker from '../components/Sticker';
-import { cssFilter, getFilter, type FilterId } from '../lib/filters';
 
-const POSES = ['34% 22%', '40% 28%', '30% 26%', '38% 20%'];
-
-function Shot({ filter, i, h }: { filter: FilterId; i: number; h: number }) {
-  const style: CSSProperties = {
-    height: h,
-    backgroundImage: `url(${EXAMPLE_THUMB})`,
-    backgroundSize: '240%',
-    backgroundPosition: POSES[i % POSES.length],
-    filter: cssFilter(getFilter(filter)),
-  };
-  return <div style={style} />;
+function Png({ file, size, className, style }: { file: string; size: number; className?: string; style?: CSSProperties }) {
+  return (
+    <img
+      src={`/stickers/${file}`}
+      alt=""
+      width={size}
+      height={size}
+      className={className}
+      style={{ objectFit: 'contain', ...style }}
+      draggable={false}
+    />
+  );
 }
 
 export default function Home() {
@@ -50,8 +49,7 @@ export default function Home() {
               <em>printed pretty.</em>
             </h1>
             <p className="hero-lede">
-              Design your own strip with filters, frames, stickers and a caption. Then smile for four shots and save it to your
-              phone or laptop.
+              Pick a filter and one of ten paper templates, then smile through the countdown. Drag on stickers, add a caption, and download or share your card.
             </p>
             <div className="hero-ctas">
               <Link to="/booth" className="btn btn-ink btn-lg">
@@ -67,25 +65,10 @@ export default function Home() {
           </div>
 
           <div className="hero-art" aria-hidden="true">
-            <div className="hero-strip hero-strip-1">
-              {[0, 1, 2, 3].map((i) => (
-                <Shot key={i} filter="bw" i={i} h={90} />
-              ))}
-            </div>
-            <div className="hero-strip hero-strip-2">
-              {[0, 1, 2, 3].map((i) => (
-                <Shot key={i} filter="softpink" i={i + 1} h={106} />
-              ))}
-              <span className="hero-strip-caption">besties ♡</span>
-            </div>
-            <div className="hero-strip hero-strip-3">
-              {[0, 1, 2, 3].map((i) => (
-                <Shot key={i} filter="film" i={i + 2} h={88} />
-              ))}
-            </div>
-            <Sticker id="heart" color="#F4A7B9" size={46} outline className="hero-sticker hero-heart" />
-            <Sticker id="star" color="#FFE29A" size={40} outline className="hero-sticker hero-star" />
-            <Sticker id="sparkle" color="#A9D3F5" size={30} className="hero-sticker hero-sparkle" />
+            <HeroCards />
+            <Png file="03-silver-heart-locket.png" size={50} className="hero-sticker hero-heart" />
+            <Png file="20-gold-star-charm.png" size={46} className="hero-sticker hero-star" />
+            <Png file="05-iridescent-sparkle.png" size={36} className="hero-sticker hero-sparkle" />
           </div>
         </section>
 
@@ -96,7 +79,7 @@ export default function Home() {
         <section id="make" className="make">
           <div className="make-head">
             <h2 className="h2">
-              every strip is
+              every card is
               <br />
               <em>yours to design.</em>
             </h2>
@@ -116,7 +99,7 @@ export default function Home() {
             </div>
             <div className="make-cell">
               <div className="make-art">
-                <span className="sq40" style={{ background: '#FFFFFF', boxShadow: 'inset 0 0 0 1.5px #E6DEDF' }} />
+                <span className="sq40" style={{ background: '#2A1E1A' }} />
                 <span
                   className="sq40"
                   style={{
@@ -130,26 +113,54 @@ export default function Home() {
                   style={{
                     backgroundColor: '#FFFFFF',
                     backgroundImage:
-                      'repeating-linear-gradient(0deg, rgba(169,211,245,0.55) 0 5px, transparent 5px 10px), repeating-linear-gradient(90deg, rgba(169,211,245,0.55) 0 5px, transparent 5px 10px)',
+                      'repeating-linear-gradient(0deg, rgba(244,167,185,0.35) 0 5px, transparent 5px 10px), repeating-linear-gradient(90deg, rgba(244,167,185,0.35) 0 5px, transparent 5px 10px)',
                   }}
                 />
-                <span className="sq40" style={{ background: '#2B2326' }} />
+                <span className="sq40" style={{ background: '#FFF9EF', boxShadow: 'inset 0 0 0 3px #FFF9EF, inset 0 0 0 4.5px #BD8A98' }} />
               </div>
               <div className="make-text">
-                <h3>frames</h3>
-                <p>classic white, polka, gingham, film and solid colors</p>
+                <h3>ten templates</h3>
+                <p>film negative, contact sheet, slide mount, blush polka, love letter, magazine and more</p>
+              </div>
+            </div>
+            <div className="make-cell">
+              <div className="make-art make-art-center" aria-hidden="true">
+                <span className="mini-layout mini-strip">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="mini-layout mini-double">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="mini-layout mini-grid">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </div>
+              <div className="make-text">
+                <h3>six layouts</h3>
+                <p>strip, trio, double strip, double trio, grid and big grid, with 3 to 8 shots</p>
               </div>
             </div>
             <div className="make-cell">
               <div className="make-art make-art-center">
-                <Sticker id="heart" color="#F4A7B9" size={34} />
-                <Sticker id="star" color="#FFE29A" size={34} />
-                <Sticker id="bow" color="#A9D3F5" accent="#7FB6E3" size={40} />
-                <Sticker id="sparkle" color="#BFE6CF" size={32} />
+                <Png file="01-silk-bow.png" size={40} />
+                <Png file="07-cherries.png" size={38} />
+                <Png file="14-blue-butterfly.png" size={40} />
+                <Png file="11-disco-ball.png" size={36} />
               </div>
               <div className="make-text">
                 <h3>stickers</h3>
-                <p>hearts, stars, bows, sparkles and tiny flowers</p>
+                <p>twenty scrapbook stickers to drag, resize and spin anywhere on your card</p>
               </div>
             </div>
             <div className="make-cell">
@@ -157,16 +168,16 @@ export default function Home() {
                 <span className="aa-serif" style={{ fontSize: 34 }}>
                   Aa
                 </span>
-                <span className="aa-bold" style={{ fontSize: 26 }}>
+                <span className="aa-type" style={{ fontSize: 26 }}>
                   Aa
                 </span>
-                <span className="aa-type" style={{ fontSize: 26 }}>
+                <span className="aa-hand" style={{ fontSize: 32 }}>
                   Aa
                 </span>
               </div>
               <div className="make-text">
                 <h3>caption</h3>
-                <p>add a little line and the date at the bottom</p>
+                <p>a little line and the date, lettered to match each template</p>
               </div>
             </div>
           </div>
@@ -185,7 +196,7 @@ export default function Home() {
               </span>
               <div>
                 <span className="how-step">design it</span>
-                <span className="how-desc">Pick a filter, a layout, a frame, stickers and your caption.</span>
+                <span className="how-desc">Pick a filter, a layout, a template and your caption.</span>
               </div>
             </li>
             <li>
@@ -193,8 +204,8 @@ export default function Home() {
                 2
               </span>
               <div>
-                <span className="how-step">strike four poses</span>
-                <span className="how-desc">A 3, 2, 1 countdown before each shot so you have time to switch it up.</span>
+                <span className="how-step">strike your poses</span>
+                <span className="how-desc">A 3, 2, 1 countdown before each shot so you have time to switch it up. Then add stickers.</span>
               </div>
             </li>
             <li>
@@ -202,8 +213,8 @@ export default function Home() {
                 3
               </span>
               <div>
-                <span className="how-step">save it</span>
-                <span className="how-desc">Download your strip as a PNG, plus each photo on its own if you like.</span>
+                <span className="how-step">download or share it</span>
+                <span className="how-desc">Save your card as a PNG, or share it straight from your phone. Each photo on its own too.</span>
               </div>
             </li>
           </ol>

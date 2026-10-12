@@ -180,6 +180,9 @@ img {
 .aa-type {
   font-family: var(--mono);
 }
+.aa-hand {
+  font-family: 'Caveat', cursive;
+}
 
 /* ---------- buttons ---------- */
 
