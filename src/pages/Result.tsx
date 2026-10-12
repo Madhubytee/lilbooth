@@ -1,75 +1,103 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import CardEditor from '../components/CardEditor';
 import Logo from '../components/Logo';
-import { canvasToBlob, processedPhoto, type Photo } from '../lib/capture';
-import { fileDate, getLayout, stripGeometry } from '../lib/design';
-import { ensureFonts, renderStrip } from '../lib/renderStrip';
+import { canvasToBlob } from '../lib/capture';
+import { cardPhotos, renderDesign, useCardAssets } from '../lib/card';
+import { fileDate } from '../lib/design';
+import { layouts } from '../lib/templates/index.ts';
+import { useStickerActions } from '../lib/useStickerActions';
 import { useBooth } from '../state/booth';
 
-function saveBlob(href: string, name: string) {
+function saveBlob(blob: Blob, name: string) {
+  const href = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = href;
   a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1500);
+}
+
+/** touch devices get the share sheet; desktops just download */
+function canUseShareSheet(file: File): boolean {
+  return window.matchMedia('(pointer: coarse)').matches && !!navigator.canShare?.({ files: [file] });
 }
 
 export default function Result() {
-  const { design, photos, shotAt, clearPhotos } = useBooth();
+  const { design, updateDesign, photos, required, shotAt, clearPhotos } = useBooth();
   const navigate = useNavigate();
-  const complete = photos.length > 0 && photos.every(Boolean);
+  const assets = useCardAssets();
+  const stickers = useStickerActions(design, updateDesign, assets);
+  const complete = photos.slice(0, required).every(Boolean);
 
-  const [url, setUrl] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [savingEach, setSavingEach] = useState(false);
+  // the exact canvas on screen: downloads encode this, so export == preview
+  const shown = useRef<HTMLCanvasElement | null>(null);
+  const [ready, setReady] = useState(false);
+  const [retina, setRetina] = useState(false);
+  const [status, setStatus] = useState('');
+  const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    document.title = 'your strip · lil booth';
+    document.title = 'your card · lil booth';
   }, []);
-
-  // render the 2x export once per design change
-  useEffect(() => {
-    if (!complete) return;
-    let cancelled = false;
-    let made: string | null = null;
-    (async () => {
-      await ensureFonts();
-      const canvas = renderStrip(design, photos, { scale: 2, date: shotAt });
-      const blob = await canvasToBlob(canvas, 'image/png');
-      if (cancelled) return;
-      made = URL.createObjectURL(blob);
-      setUrl(made);
-    })();
-    return () => {
-      cancelled = true;
-      if (made) URL.revokeObjectURL(made);
-    };
-  }, [complete, design, photos, shotAt]);
 
   const base = `lilbooth-${fileDate(shotAt)}`;
 
-  const download = () => {
-    if (!url) return;
-    saveBlob(url, `${base}.png`);
-    setSaved(true);
+  const exportBlob = async (): Promise<Blob> => {
+    if (retina && assets) {
+      const big = await renderDesign(design, photos, shotAt, assets, { retina: true });
+      return canvasToBlob(big, 'image/png');
+    }
+    if (!shown.current) throw new Error('not ready');
+    return canvasToBlob(shown.current, 'image/png');
+  };
+
+  const download = async () => {
+    setWorking(true);
+    try {
+      saveBlob(await exportBlob(), `${base}${retina ? '-3600' : ''}.png`);
+      setStatus(`saved ♡ check your downloads for ${base}${retina ? '-3600' : ''}.png`);
+    } catch {
+      setStatus('Something went wrong saving your card. Please try again.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const share = async () => {
+    setWorking(true);
+    try {
+      const blob = await exportBlob();
+      const file = new File([blob], `${base}.png`, { type: 'image/png' });
+      if (canUseShareSheet(file)) {
+        await navigator.share({ files: [file], title: 'my lil booth card' });
+        setStatus('shared ♡');
+      } else {
+        saveBlob(blob, file.name);
+        setStatus(`saved ♡ check your downloads for ${file.name}`);
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') setStatus('Sharing didn’t work here. Try download instead.');
+    } finally {
+      setWorking(false);
+    }
   };
 
   const downloadEach = async () => {
-    setSavingEach(true);
+    setWorking(true);
     try {
-      const layout = getLayout(design.layout);
-      const w = Math.round(stripGeometry(layout).slots[0].w * 2);
-      for (const [i, p] of (photos as Photo[]).entries()) {
-        const blob = await canvasToBlob(processedPhoto(p, layout.aspect, w, design.filter), 'image/jpeg', 0.92);
-        const href = URL.createObjectURL(blob);
-        saveBlob(href, `${base}-photo-${i + 1}.jpg`);
-        setTimeout(() => URL.revokeObjectURL(href), 1000);
+      const singles = cardPhotos(design, photos.slice(0, required));
+      for (const [i, c] of singles.entries()) {
+        if (!c) continue;
+        saveBlob(await canvasToBlob(c, 'image/jpeg', 0.92), `${base}-photo-${i + 1}.jpg`);
         // browsers drop rapid back-to-back downloads, so space them out a little
         await new Promise((r) => setTimeout(r, 250));
       }
+      setStatus(`saved ${singles.length} photos ♡`);
     } finally {
-      setSavingEach(false);
+      setWorking(false);
     }
   };
 
@@ -86,9 +114,9 @@ export default function Result() {
         </header>
         <main className="result-empty">
           <h1 className="display">
-            no strip <em>yet.</em>
+            no card <em>yet.</em>
           </h1>
-          <p>Head into the booth and take your photos first. Your strip will show up here.</p>
+          <p>Head into the booth and take your photos first. Your card will show up here.</p>
           <Link to="/booth" className="btn btn-ink btn-lg">
             open the booth
           </Link>
@@ -96,8 +124,6 @@ export default function Result() {
       </div>
     );
   }
-
-  const wide = design.layout === 'grid';
 
   return (
     <div className="page result-page">
@@ -109,41 +135,57 @@ export default function Result() {
       </header>
 
       <main className="result">
-        <section className="result-stage" aria-label="Your strip">
-          <div className={`result-strip ${wide ? 'is-wide' : ''}`}>
-            {url ? (
-              <img src={url} alt={`Your lil booth ${design.layout}${design.caption ? `, captioned “${design.caption}”` : ''}`} />
-            ) : (
-              <div className="result-loading" style={{ aspectRatio: aspectOf(design.layout) }}>
-                developing…
-              </div>
-            )}
-          </div>
+        <section className="result-stage" aria-label="Your card">
+          {assets ? (
+            <CardEditor
+              design={design}
+              update={updateDesign}
+              photos={photos}
+              date={shotAt}
+              assets={assets}
+              maxWidth={440}
+              maxHeight={660}
+              onRendered={(c) => {
+                shown.current = c;
+                setReady(true);
+              }}
+            />
+          ) : (
+            <div className="card-loading">developing…</div>
+          )}
         </section>
 
         <section className="result-side">
           <div className="result-head">
             <span className="eyebrow">
               <span className="eyebrow-dot" aria-hidden="true" />
-              {getLayout(design.layout).count} photos, printed pretty
+              {required} photos · {layouts[design.layout].name.toLowerCase()}
             </span>
             <h1 className="display">
-              your strip is <em>ready.</em>
+              your card is <em>ready.</em>
             </h1>
-            <p className="lede">Save it to your device, or go back and change the filter, frame or stickers. Your photos stay put.</p>
+            <p className="lede">Save it, share it, or go back and change the filter, template or stickers. Your photos stay put.</p>
           </div>
 
           <div className="save-box">
-            <button type="button" className="btn btn-ink btn-lg btn-block" onClick={download} disabled={!url}>
-              {url ? 'download my strip' : 'developing…'}
+            <button type="button" className="btn btn-ink btn-lg btn-block" onClick={download} disabled={!ready || working}>
+              {ready ? 'download png' : 'developing…'}
             </button>
-            <button type="button" className="btn btn-line btn-block" onClick={downloadEach} disabled={savingEach}>
-              {savingEach ? 'saving…' : 'download each photo too'}
+            <button type="button" className="btn btn-line btn-block" onClick={share} disabled={!ready || working}>
+              share
             </button>
-            {saved && (
+            <label className="check">
+              <input type="checkbox" checked={retina} onChange={(e) => setRetina(e.target.checked)} />
+              <span>
+                extra large <span className="check-sub">(3600px instead of 1800px)</span>
+              </span>
+            </label>
+            <button type="button" className="link-btn" onClick={downloadEach} disabled={working}>
+              download each photo on its own
+            </button>
+            {status && (
               <div className="sent-box" role="status">
-                <span className="sent-title">saved ♡</span>
-                <span>Check your downloads for {base}.png</span>
+                {status}
               </div>
             )}
           </div>
@@ -156,14 +198,10 @@ export default function Result() {
               retake photos
             </button>
           </div>
-          <p className="fine">Your photos never leave this device. Nothing is uploaded anywhere.</p>
+          <p className="fine">Your photos never leave this device unless you share them.</p>
         </section>
       </main>
+      {stickers.dialog}
     </div>
   );
-}
-
-function aspectOf(layout: Parameters<typeof getLayout>[0]): string {
-  const g = stripGeometry(getLayout(layout));
-  return `${g.W} / ${g.H}`;
 }

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Camera, { EXAMPLE_THUMB } from '../components/Camera';
+import CardEditor from '../components/CardEditor';
 import DesignPanel from '../components/DesignPanel';
 import Logo from '../components/Logo';
-import StripPreview from '../components/StripPreview';
 import { captureFrame } from '../lib/capture';
-import { getLayout } from '../lib/design';
+import { useCardAssets } from '../lib/card';
+import { layouts } from '../lib/templates/index.ts';
 import { useCamera } from '../lib/useCamera';
 import { useReducedMotion } from '../lib/useReducedMotion';
+import { useStickerActions } from '../lib/useStickerActions';
 import { useBooth } from '../state/booth';
 
 const COUNT_MS = 1000;
@@ -16,9 +18,11 @@ const BETWEEN_MS = 1100;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function Booth() {
-  const { design, updateDesign, photos, setPhoto, clearPhotos, shotAt } = useBooth();
+  const { design, updateDesign, photos, required, setPhoto, clearPhotos, shotAt } = useBooth();
   const cam = useCamera();
   const reduced = useReducedMotion();
+  const assets = useCardAssets();
+  const stickers = useStickerActions(design, updateDesign, assets);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [count, setCount] = useState<number | null>(null);
@@ -27,11 +31,11 @@ export default function Booth() {
   const [current, setCurrent] = useState<number | null>(null);
   const aborted = useRef(false);
 
-  const layout = getLayout(design.layout);
   const live = cam.status === 'live' && !!cam.stream;
-  const filled = photos.filter(Boolean).length;
-  const done = filled === layout.count;
-  const empty = photos.map((p, i) => (p ? -1 : i)).filter((i) => i >= 0);
+  const used = photos.slice(0, required);
+  const filled = used.filter(Boolean).length;
+  const done = filled === required;
+  const empty = used.map((p, i) => (p ? -1 : i)).filter((i) => i >= 0);
 
   useEffect(() => {
     document.title = 'the booth · lil booth';
@@ -77,14 +81,14 @@ export default function Booth() {
 
   const shootRemaining = () => shoot(empty);
 
-  // spacebar = shutter (unless typing or a control has focus, where space already means "press")
+  // spacebar = shutter (unless typing, a control has focus, or the sticker editor has focus)
   const shutterRef = useRef(shootRemaining);
   shutterRef.current = shootRemaining;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || e.repeat) return;
       const t = e.target as HTMLElement;
-      if (t.closest('input, textarea, select, button, a, [role="tab"]')) return;
+      if (t.closest('input, textarea, select, button, a, [role="tab"], .card-editor')) return;
       e.preventDefault();
       shutterRef.current();
     };
@@ -92,22 +96,20 @@ export default function Booth() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const shotLabel = `shot ${current !== null ? current + 1 : Math.min(filled + 1, layout.count)} of ${layout.count}`;
+  const shotLabel = `shot ${current !== null ? current + 1 : Math.min(filled + 1, required)} of ${required}`;
 
   let buttonText = 'ready when you are';
   if (!live) buttonText = 'camera’s off';
   else if (busy && count !== null) buttonText = 'get ready…';
   else if (busy) buttonText = 'strike a pose!';
   else if (done) buttonText = 'that’s a wrap';
-  else if (filled > 0) buttonText = `${layout.count - filled} more to go`;
+  else if (filled > 0) buttonText = `${required - filled} more to go`;
 
   let status = { text: 'camera off', tone: 'off' };
   if (cam.status === 'requesting') status = { text: 'waiting for camera', tone: 'wait' };
   else if (live && busy) status = { text: `shooting · ${shotLabel}`, tone: 'rec' };
-  else if (live && done) status = { text: 'your strip is ready', tone: 'done' };
+  else if (live && done) status = { text: 'your card is ready', tone: 'done' };
   else if (live) status = { text: 'camera on', tone: 'on' };
-
-  const stripWidth = design.layout === 'grid' ? 208 : 156;
 
   return (
     <div className="page booth-page">
@@ -129,7 +131,7 @@ export default function Booth() {
             shotLabel={shotLabel}
             count={count}
             flashKey={flashKey}
-            aspect={layout.aspect}
+            aspect={layouts[design.layout].aspect}
             videoRef={videoRef}
             devices={cam.devices}
             deviceId={cam.deviceId}
@@ -149,7 +151,7 @@ export default function Booth() {
               <div className="controls-text">
                 <span className="controls-title">{buttonText}</span>
                 <span className="controls-sub">
-                  {layout.count} shots · 3 second countdown each
+                  {required} shots · 3 second countdown each
                   {live && !busy && !done && <span className="kbd-hint"> · or press space</span>}
                 </span>
               </div>
@@ -160,34 +162,66 @@ export default function Booth() {
                   retake all
                 </button>
                 <Link to="/result" className="btn btn-ink">
-                  see my strip →
+                  see my card →
                 </Link>
               </div>
             )}
           </div>
         </section>
 
-        <section className="booth-preview" aria-label="Strip preview">
+        <section className="booth-preview" aria-label="Card preview">
           <span className="preview-label">live preview</span>
-          <StripPreview
-            design={design}
-            photos={photos}
-            shotAt={shotAt}
-            width={stripWidth}
-            onRetake={live ? (i) => shoot([i]) : undefined}
-            retakeDisabled={busy}
-          />
-          {filled > 0 && live && <p className="preview-tip">tap a photo to retake just that one</p>}
+          {assets ? (
+            <CardEditor
+              design={design}
+              update={updateDesign}
+              photos={photos}
+              date={shotAt}
+              assets={assets}
+              maxWidth={268}
+              maxHeight={540}
+            />
+          ) : (
+            <div className="card-loading">loading…</div>
+          )}
+          {live && filled > 0 && (
+            <div className="retake-row" role="group" aria-label="Retake one photo">
+              <span>retake</span>
+              {used.map((p, i) =>
+                p ? (
+                  <button
+                    key={i}
+                    type="button"
+                    className="retake-btn"
+                    onClick={() => shoot([i])}
+                    disabled={busy}
+                    aria-label={`Retake photo ${i + 1}`}
+                  >
+                    {i + 1}
+                  </button>
+                ) : null,
+              )}
+            </div>
+          )}
         </section>
 
         <DesignPanel
           design={design}
           update={updateDesign}
+          onTemplate={stickers.chooseTemplate}
+          photos={photos}
+          shotAt={shotAt}
+          assets={assets}
           source={live ? { kind: 'stream', stream: cam.stream! } : { kind: 'image', src: EXAMPLE_THUMB }}
           mirror={live}
           busy={busy}
+          onAddSticker={(f) => stickers.addSticker(f)}
+          onResetStickers={stickers.resetStickers}
+          onClearStickers={stickers.clearStickers}
+          stickersCustomised={stickers.customised}
         />
       </main>
+      {stickers.dialog}
     </div>
   );
 }

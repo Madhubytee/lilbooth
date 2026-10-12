@@ -1,87 +1,61 @@
 import type { FilterId } from './filters';
-import type { FrameId } from './frames';
-import type { StickerPackId } from './stickers';
-
-export type LayoutId = 'strip' | 'grid' | 'trio';
-export type CaptionFont = 'serif' | 'bold' | 'type';
+import { computeLayout, layouts, templateById, templates } from './templates/index.ts';
+import type { LayoutId, Sticker, TemplateId } from './templates/types.ts';
 
 export interface Design {
   filter: FilterId;
+  template: TemplateId;
   layout: LayoutId;
-  frame: FrameId;
-  stickers: StickerPackId[];
+  /** double layouts: a different set of shots in each strip */
+  differentShots: boolean;
   caption: string;
   showDate: boolean;
-  font: CaptionFont;
-  /** drives the small random sticker rotations */
-  seed: number;
+  /** Contact Sheet: which shot gets the red circle */
+  favorite: number;
+  /**
+   * null = the template's default stickers, untouched.
+   * Once someone edits stickers this holds every sticker on the card,
+   * positions as fractions of the card size.
+   */
+  stickers: Sticker[] | null;
 }
 
 export const DEFAULT_DESIGN: Design = {
   filter: 'original',
+  template: 'clean-white',
   layout: 'strip',
-  frame: 'classic',
-  stickers: [],
+  differentShots: false,
   caption: '',
   showDate: true,
-  font: 'serif',
-  seed: 7,
+  favorite: 0,
+  stickers: null,
 };
 
-export interface LayoutDef {
-  id: LayoutId;
-  name: string;
-  count: number;
-  cols: number;
-  /** strip width in base units (1x export) */
-  W: number;
-  /** photo aspect ratio, w / h */
-  aspect: number;
-  pad: number;
-  gap: number;
-  /** caption band height */
-  band: number;
-  /** scale for text and stickers relative to a 600 wide strip */
-  unit: number;
+/** most shots any layout can need (double strip with different shots) */
+export const MAX_SHOTS = 8;
+
+export const LAYOUT_IDS = Object.keys(layouts) as LayoutId[];
+
+export function isDouble(layout: LayoutId): boolean {
+  return layouts[layout].double;
 }
 
-export const LAYOUTS: LayoutDef[] = [
-  { id: 'strip', name: 'strip', count: 4, cols: 1, W: 600, aspect: 4 / 3, pad: 30, gap: 18, band: 180, unit: 1 },
-  { id: 'grid', name: 'grid', count: 4, cols: 2, W: 1200, aspect: 1, pad: 60, gap: 24, band: 230, unit: 1.6 },
-  { id: 'trio', name: 'trio', count: 3, cols: 1, W: 600, aspect: 6 / 5, pad: 30, gap: 18, band: 180, unit: 1 },
-];
-
-export function getLayout(id: LayoutId): LayoutDef {
-  return LAYOUTS.find((l) => l.id === id) ?? LAYOUTS[0];
+/** shots needed for a layout: 3, 4, 6 or 8 */
+export function requiredShots(layout: LayoutId, differentShots: boolean): number {
+  return computeLayout(templates[0], layout, differentShots).requiredPhotos;
 }
 
-export interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+export function geometryOf(d: Design) {
+  return computeLayout(templateById[d.template], d.layout, d.differentShots);
 }
 
-export interface StripGeometry {
-  W: number;
-  H: number;
-  slots: Rect[];
-  band: Rect;
-}
-
-export function stripGeometry(layout: LayoutDef): StripGeometry {
-  const { W, pad, gap, cols, count, aspect, band } = layout;
-  const pw = (W - pad * 2 - gap * (cols - 1)) / cols;
-  const ph = pw / aspect;
-  const rows = Math.ceil(count / cols);
-  const slots: Rect[] = [];
-  for (let i = 0; i < count; i++) {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    slots.push({ x: pad + c * (pw + gap), y: pad + r * (ph + gap), w: pw, h: ph });
-  }
-  const photosBottom = pad + rows * ph + (rows - 1) * gap;
-  return { W, H: Math.round(photosBottom + band), slots, band: { x: 0, y: photosBottom, w: W, h: band } };
+/** keeps a stored design valid if templates or layouts change between versions */
+export function sanitizeDesign(raw: Partial<Design>): Design {
+  const d = { ...DEFAULT_DESIGN, ...raw };
+  if (!templateById[d.template]) d.template = DEFAULT_DESIGN.template;
+  if (!layouts[d.layout]) d.layout = DEFAULT_DESIGN.layout;
+  if (d.stickers !== null && !Array.isArray(d.stickers)) d.stickers = null;
+  return d;
 }
 
 export function formatDate(d: Date): string {

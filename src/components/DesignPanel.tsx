@@ -1,42 +1,94 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react';
-import { LAYOUTS, type CaptionFont, type Design, type LayoutId } from '../lib/design';
+import { memo, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import type { Photo } from '../lib/capture';
+import { stickerLabel, type Assets } from '../lib/card';
+import { isDouble, LAYOUT_IDS, requiredShots, type Design } from '../lib/design';
 import { FILTERS } from '../lib/filters';
-import { FRAMES } from '../lib/frames';
-import { STICKER_PACKS } from '../lib/stickers';
+import { layouts, stickerFiles, templates } from '../lib/templates/index.ts';
+import type { LayoutId, TemplateId } from '../lib/templates/types.ts';
+import CardCanvas from './CardCanvas';
 import FilterView, { type MediaSource } from './FilterView';
-import Sticker from './Sticker';
 
 type Tab = 'filter' | 'layout' | 'frame' | 'stickers' | 'caption';
 const TABS: Tab[] = ['filter', 'layout', 'frame', 'stickers', 'caption'];
 
+const GROUPS: { id: 'film' | 'open'; label: string }[] = [
+  { id: 'film', label: 'film' },
+  { id: 'open', label: 'open + cute' },
+];
+
 interface Props {
   design: Design;
   update: (patch: Partial<Design>) => void;
+  /** switching template goes through the parent so it can ask about custom stickers */
+  onTemplate: (id: TemplateId) => void;
+  photos: (Photo | null)[];
+  shotAt: Date;
+  assets: Assets | null;
   /** live camera (or the example photo) for the filter thumbnails */
   source: MediaSource;
   mirror: boolean;
   /** true while shooting: layout can't change mid-session */
   busy: boolean;
+  onAddSticker: (file: string) => void;
+  /** pointer-drag a sticker from the tray (handled by the card it's dropped on) */
+  onStickerDragStart?: (file: string, e: ReactPointerEvent) => void;
+  onResetStickers: () => void;
+  onClearStickers: () => void;
+  stickersCustomised: boolean;
 }
 
-const FONTS: { id: CaptionFont; label: string; className: string }[] = [
-  { id: 'serif', label: 'serif italic', className: 'aa-serif' },
-  { id: 'bold', label: 'bold', className: 'aa-bold' },
-  { id: 'type', label: 'typewriter', className: 'aa-type' },
-];
+/** One template rendered with the real photos. Memoised so it only redraws when the card would change. */
+const TemplateThumb = memo(function TemplateThumb({
+  design,
+  template,
+  photos,
+  shotAt,
+  assets,
+}: {
+  design: Design;
+  template: TemplateId;
+  photos: (Photo | null)[];
+  shotAt: Date;
+  assets: Assets | null;
+}) {
+  const { filter, layout, differentShots, caption, showDate, favorite } = design;
+  const thumb = useMemo(
+    () => ({ filter, layout, differentShots, caption, showDate, favorite, template, stickers: null }),
+    [filter, layout, differentShots, caption, showDate, favorite, template],
+  );
+  return (
+    <span className="template-thumb">
+      {assets && (
+        <CardCanvas design={thumb} photos={photos} date={shotAt} assets={assets} maxWidth={88} maxHeight={112} longSide={300} label="" />
+      )}
+    </span>
+  );
+});
 
 function LayoutIcon({ id }: { id: LayoutId }) {
-  const cells = id === 'grid' ? 4 : id === 'trio' ? 3 : 4;
+  const l = layouts[id];
+  const strips = l.double ? 2 : 1;
+  const cols = l.double ? 1 : l.cols;
+  const cell = l.aspect === 1 ? { w: 14, h: 14 } : { w: 16, h: 12 };
   return (
-    <span className={`layout-icon layout-icon-${id}`} aria-hidden="true">
-      {Array.from({ length: cells }, (_, i) => (
-        <span key={i} />
+    <span className="layout-icon" aria-hidden="true">
+      {Array.from({ length: strips }, (_, s) => (
+        <span
+          key={s}
+          className="layout-icon-strip"
+          style={{ gridTemplateColumns: `repeat(${cols}, ${cell.w}px)`, gridAutoRows: `${cell.h}px` }}
+        >
+          {Array.from({ length: cols * l.rows }, (_, i) => (
+            <span key={i} />
+          ))}
+        </span>
       ))}
     </span>
   );
 }
 
-export default function DesignPanel({ design, update, source, mirror, busy }: Props) {
+export default function DesignPanel(props: Props) {
+  const { design, update, onTemplate, photos, shotAt, assets, source, mirror, busy } = props;
   const [tab, setTab] = useState<Tab>('filter');
   const uid = useId();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -53,13 +105,8 @@ export default function DesignPanel({ design, update, source, mirror, busy }: Pr
     tabRefs.current[next]?.focus();
   };
 
-  const toggleSticker = (id: (typeof STICKER_PACKS)[number]['id']) => {
-    const on = design.stickers.includes(id);
-    update({ stickers: on ? design.stickers.filter((s) => s !== id) : [...design.stickers, id] });
-  };
-
   return (
-    <section className="panel" aria-label="Design your strip">
+    <section className="panel" aria-label="Design your card">
       <div className="tabs" role="tablist" aria-label="Design options">
         {TABS.map((t, i) => (
           <button
@@ -103,68 +150,93 @@ export default function DesignPanel({ design, update, source, mirror, busy }: Pr
         {tab === 'layout' && (
           <>
             <div className="opt-grid opt-grid-3" role="group" aria-label="Layout">
-              {LAYOUTS.map((l) => (
+              {LAYOUT_IDS.map((id) => (
                 <button
-                  key={l.id}
+                  key={id}
                   type="button"
                   className="opt opt-layout"
-                  aria-pressed={design.layout === l.id}
+                  aria-pressed={design.layout === id}
                   disabled={busy}
-                  onClick={() => update({ layout: l.id })}
+                  onClick={() => update({ layout: id })}
                 >
-                  <LayoutIcon id={l.id} />
-                  <span className="opt-label">{l.name}</span>
-                  <span className="opt-sub">{l.count} shots</span>
+                  <LayoutIcon id={id} />
+                  <span className="opt-label">{layouts[id].name.toLowerCase()}</span>
+                  <span className="opt-sub">{requiredShots(id, design.layout === id && design.differentShots)} shots</span>
                 </button>
               ))}
             </div>
-            <p className="panel-note">Switching layout keeps the photos you've taken. Any new slots will be empty.</p>
+            {isDouble(design.layout) && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={design.differentShots}
+                  disabled={busy}
+                  onChange={(e) => update({ differentShots: e.target.checked })}
+                />
+                <span>
+                  different shots in each strip
+                  <span className="check-sub">
+                    {' '}
+                    ({requiredShots(design.layout, true)} shots instead of {requiredShots(design.layout, false)})
+                  </span>
+                </span>
+              </label>
+            )}
+            <p className="panel-note">Switching layout keeps every photo you've taken. New slots start empty.</p>
           </>
         )}
 
-        {tab === 'frame' && (
-          <div className="opt-grid opt-grid-4" role="group" aria-label="Frame">
-            {FRAMES.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className="opt opt-frame"
-                aria-pressed={design.frame === f.id}
-                onClick={() => update({ frame: f.id })}
-              >
-                <span className="frame-swatch" style={styleFromString(f.swatch)} aria-hidden="true" />
-                <span className="opt-label">{f.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        {tab === 'frame' &&
+          GROUPS.map((g) => (
+            <div key={g.id} className="template-group" role="group" aria-labelledby={`${uid}-group-${g.id}`}>
+              <span className="field-label" id={`${uid}-group-${g.id}`}>
+                {g.label}
+              </span>
+              <div className="opt-grid opt-grid-3">
+                {templates
+                  .filter((t) => t.group === g.id)
+                  .map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className="opt opt-template"
+                      aria-pressed={design.template === t.id}
+                      onClick={() => onTemplate(t.id)}
+                    >
+                      <TemplateThumb design={design} template={t.id} photos={photos} shotAt={shotAt} assets={assets} />
+                      <span className="opt-label">{t.name.toLowerCase()}</span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ))}
 
         {tab === 'stickers' && (
           <>
-            <div className="opt-grid opt-grid-3" role="group" aria-label="Stickers">
-              {STICKER_PACKS.map((s) => (
+            <p className="panel-note">Tap a sticker to add it, or drag it onto your card. Tap it on the card to move, resize or turn it.</p>
+            <div className="tray" role="group" aria-label="Sticker tray">
+              {stickerFiles.map((f) => (
                 <button
-                  key={s.id}
+                  key={f}
                   type="button"
-                  className="opt opt-sticker"
-                  aria-pressed={design.stickers.includes(s.id)}
-                  onClick={() => toggleSticker(s.id)}
+                  className="tray-item"
+                  onClick={() => props.onAddSticker(f)}
+                  onPointerDown={(e) => props.onStickerDragStart?.(f, e)}
+                  aria-label={`Add ${stickerLabel(f)}`}
+                  title={stickerLabel(f)}
                 >
-                  <span className="sticker-icon">
-                    <Sticker id={s.icon.shape} color={s.icon.color} accent={s.icon.accent} size={s.icon.shape === 'bow' ? 40 : 30} />
-                  </span>
-                  <span className="opt-label">{s.name}</span>
+                  <img src={`/stickers/${f}`} alt="" draggable={false} />
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className="btn btn-line btn-sm"
-              onClick={() => update({ seed: Math.floor(Math.random() * 1e6) })}
-              disabled={!design.stickers.length}
-            >
-              shuffle the tilt
-            </button>
+            <div className="panel-actions">
+              <button type="button" className="btn btn-line btn-sm" onClick={props.onResetStickers} disabled={!props.stickersCustomised}>
+                reset stickers
+              </button>
+              <button type="button" className="btn btn-line btn-sm" onClick={props.onClearStickers}>
+                clear all
+              </button>
+            </div>
           </>
         )}
 
@@ -176,49 +248,19 @@ export default function DesignPanel({ design, update, source, mirror, busy }: Pr
                 type="text"
                 className="input"
                 value={design.caption}
-                maxLength={32}
+                maxLength={24}
                 placeholder="besties ♡"
                 onChange={(e) => update({ caption: e.target.value })}
               />
             </label>
-            <fieldset className="field">
-              <legend className="field-label">font</legend>
-              <div className="opt-grid opt-grid-3">
-                {FONTS.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    className="opt opt-font"
-                    aria-pressed={design.font === f.id}
-                    onClick={() => update({ font: f.id })}
-                  >
-                    <span className={f.className} aria-hidden="true">
-                      Aa
-                    </span>
-                    <span className="opt-label">{f.label}</span>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
             <label className="check">
               <input type="checkbox" checked={design.showDate} onChange={(e) => update({ showDate: e.target.checked })} />
               <span>add the date</span>
             </label>
+            <p className="panel-note">Each template picks its own lettering. Leave the caption empty for a clean band.</p>
           </div>
         )}
       </div>
     </section>
   );
-}
-
-/** turns "a:b;c:d" into a React style object */
-function styleFromString(s: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const decl of s.split(';')) {
-    const i = decl.indexOf(':');
-    if (i < 0) continue;
-    const prop = decl.slice(0, i).trim().replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-    out[prop] = decl.slice(i + 1).trim();
-  }
-  return out;
 }
