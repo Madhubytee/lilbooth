@@ -26,7 +26,7 @@ interface Props {
 const MESSAGES: Partial<Record<CameraStatus, { title: string; body: string; action?: string }>> = {
   idle: {
     title: 'allow camera to start your strip',
-    body: 'Your photos stay on this device until you send them. Until then, say hi to our example cow and try some filters on her.',
+    body: 'Your photos never leave this device. Until you allow it, say hi to our example cow and try some filters on her.',
     action: 'allow camera',
   },
   requesting: {

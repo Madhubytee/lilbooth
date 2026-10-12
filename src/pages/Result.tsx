@@ -1,14 +1,19 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
-import { blobToBase64, canvasToBlob, processedPhoto, type Photo } from '../lib/capture';
+import { canvasToBlob, processedPhoto, type Photo } from '../lib/capture';
 import { fileDate, getLayout, stripGeometry } from '../lib/design';
 import { ensureFonts, renderStrip } from '../lib/renderStrip';
 import { useBooth } from '../state/booth';
 
-type SendState = { kind: 'idle' } | { kind: 'sending' } | { kind: 'sent'; to: string } | { kind: 'error'; message: string };
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function saveBlob(href: string, name: string) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 export default function Result() {
   const { design, photos, shotAt, clearPhotos } = useBooth();
@@ -16,12 +21,8 @@ export default function Result() {
   const complete = photos.length > 0 && photos.every(Boolean);
 
   const [url, setUrl] = useState<string | null>(null);
-  const blobRef = useRef<Blob | null>(null);
-
-  const [email, setEmail] = useState('');
-  const [attachEach, setAttachEach] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [send, setSend] = useState<SendState>({ kind: 'idle' });
+  const [saved, setSaved] = useState(false);
+  const [savingEach, setSavingEach] = useState(false);
 
   useEffect(() => {
     document.title = 'your strip · lil booth';
@@ -37,7 +38,6 @@ export default function Result() {
       const canvas = renderStrip(design, photos, { scale: 2, date: shotAt });
       const blob = await canvasToBlob(canvas, 'image/png');
       if (cancelled) return;
-      blobRef.current = blob;
       made = URL.createObjectURL(blob);
       setUrl(made);
     })();
@@ -47,58 +47,35 @@ export default function Result() {
     };
   }, [complete, design, photos, shotAt]);
 
-  const fileName = `lilbooth-${fileDate(shotAt)}.png`;
+  const base = `lilbooth-${fileDate(shotAt)}`;
 
   const download = () => {
     if (!url) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    saveBlob(url, `${base}.png`);
+    setSaved(true);
+  };
+
+  const downloadEach = async () => {
+    setSavingEach(true);
+    try {
+      const layout = getLayout(design.layout);
+      const w = Math.round(stripGeometry(layout).slots[0].w * 2);
+      for (const [i, p] of (photos as Photo[]).entries()) {
+        const blob = await canvasToBlob(processedPhoto(p, layout.aspect, w, design.filter), 'image/jpeg', 0.92);
+        const href = URL.createObjectURL(blob);
+        saveBlob(href, `${base}-photo-${i + 1}.jpg`);
+        setTimeout(() => URL.revokeObjectURL(href), 1000);
+        // browsers drop rapid back-to-back downloads, so space them out a little
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    } finally {
+      setSavingEach(false);
+    }
   };
 
   const retake = () => {
     clearPhotos();
     navigate('/booth');
-  };
-
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const to = email.trim();
-    if (!EMAIL_RE.test(to)) {
-      setEmailError('That email doesn’t look quite right.');
-      return;
-    }
-    setEmailError('');
-    if (!blobRef.current) return;
-    setSend({ kind: 'sending' });
-    try {
-      const strip = await blobToBase64(blobRef.current);
-      let singles: string[] | undefined;
-      if (attachEach) {
-        const layout = getLayout(design.layout);
-        const w = Math.round(stripGeometry(layout).slots[0].w * 2);
-        singles = await Promise.all(
-          (photos as Photo[]).map(async (p) =>
-            blobToBase64(await canvasToBlob(processedPhoto(p, layout.aspect, w, design.filter), 'image/jpeg', 0.92)),
-          ),
-        );
-      }
-      const res = await fetch('/api/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, strip, fileName, photos: singles }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Something went wrong sending your strip.');
-      setSend({ kind: 'sent', to });
-    } catch (err) {
-      const message =
-        err instanceof TypeError ? 'Couldn’t reach the server. Check your connection and try again.' : (err as Error).message;
-      setSend({ kind: 'error', message });
-    }
   };
 
   if (!complete) {
@@ -153,66 +130,25 @@ export default function Result() {
             <h1 className="display">
               your strip is <em>ready.</em>
             </h1>
-            <p className="lede">Send it to your inbox, save the image, or go back and change the filter, frame or stickers. Your photos stay put.</p>
+            <p className="lede">Save it to your device, or go back and change the filter, frame or stickers. Your photos stay put.</p>
           </div>
 
-          {send.kind === 'sent' ? (
-            <div className="sent-box" role="status">
-              <span className="sent-title">sent ♡</span>
-              <span>Check your inbox at {send.to}. It might take a minute.</span>
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => {
-                  setSend({ kind: 'idle' });
-                  setEmail('');
-                }}
-              >
-                send to someone else
-              </button>
-            </div>
-          ) : (
-            <form className="email-form" onSubmit={onSubmit} noValidate>
-              <label className="field">
-                <span className="field-label">email it to</span>
-                <input
-                  type="email"
-                  className="input"
-                  autoComplete="email"
-                  inputMode="email"
-                  placeholder="you@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  aria-invalid={!!emailError}
-                  aria-describedby={emailError ? 'email-error' : undefined}
-                  disabled={send.kind === 'sending'}
-                  required
-                />
-              </label>
-              {emailError && (
-                <span id="email-error" className="field-error">
-                  {emailError}
-                </span>
-              )}
-              <label className="check">
-                <input type="checkbox" checked={attachEach} onChange={(e) => setAttachEach(e.target.checked)} />
-                <span>also attach each photo on its own</span>
-              </label>
-              <button type="submit" className="btn btn-ink btn-block" disabled={send.kind === 'sending' || !url}>
-                {send.kind === 'sending' ? 'sending…' : 'send'}
-              </button>
-              {send.kind === 'error' && (
-                <div className="error-box" role="alert">
-                  <strong>that didn’t send.</strong> {send.message}
-                </div>
-              )}
-            </form>
-          )}
+          <div className="save-box">
+            <button type="button" className="btn btn-ink btn-lg btn-block" onClick={download} disabled={!url}>
+              {url ? 'download my strip' : 'developing…'}
+            </button>
+            <button type="button" className="btn btn-line btn-block" onClick={downloadEach} disabled={savingEach}>
+              {savingEach ? 'saving…' : 'download each photo too'}
+            </button>
+            {saved && (
+              <div className="sent-box" role="status">
+                <span className="sent-title">saved ♡</span>
+                <span>Check your downloads for {base}.png</span>
+              </div>
+            )}
+          </div>
 
           <div className="result-actions">
-            <button type="button" className="btn btn-line" onClick={download} disabled={!url}>
-              download png
-            </button>
             <Link to="/booth" className="btn btn-line">
               edit the design
             </Link>
@@ -220,7 +156,7 @@ export default function Result() {
               retake photos
             </button>
           </div>
-          <p className="fine">Nothing is saved on our server. Your photos only leave this device when you hit send.</p>
+          <p className="fine">Your photos never leave this device. Nothing is uploaded anywhere.</p>
         </section>
       </main>
     </div>

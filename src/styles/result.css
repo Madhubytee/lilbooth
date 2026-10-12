@@ -82,19 +82,12 @@
   color: var(--muted);
 }
 
-.email-form {
+.save-box {
   display: flex;
   flex-direction: column;
   gap: 12px;
   border-top: 1px solid var(--line);
   padding-top: 24px;
-}
-.error-box {
-  border: 1.5px solid var(--deep-pink);
-  background: #fff6f8;
-  padding: 14px 16px;
-  font-size: 15px;
-  line-height: 1.5;
 }
 .sent-box {
   background: var(--blush);

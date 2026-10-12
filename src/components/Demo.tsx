@@ -41,12 +41,12 @@ const CURSOR_MAP: Record<number, [number, number]> = {
 };
 const CLICK_TICKS = new Set([2, 4, 6, 8, 10, 24]);
 const ROW_TOP = [16 + 26 + 22, 16 + 26 + 22 + 84, 16 + 26 + 22 + 168];
-const EMAIL = 'you@email.com';
+const FILE = 'lilbooth-strip.png';
 
 const STEPS = [
   { id: 'design', num: '1', label: 'design it', at: 0 },
   { id: 'shoot', num: '2', label: 'shoot it', at: 12 },
-  { id: 'send', num: '3', label: 'send it', at: 19 },
+  { id: 'send', num: '3', label: 'save it', at: 19 },
 ] as const;
 
 export default function Demo() {
@@ -120,10 +120,9 @@ export default function Demo() {
 
   const cur = FILTER_DEFS[phase === 'design' ? filterIdx : 2];
   const curDef = getFilter(cur.id);
-  const typedLen = phase === 'send' ? Math.min(EMAIL.length, Math.max(0, (t - 19) * 4)) : 0;
   const sentDone = t >= 25;
   const status =
-    phase === 'design' ? 'designing your strip' : phase === 'shoot' ? 'shooting' : sentDone ? 'sent' : 'ready to send';
+    phase === 'design' ? 'designing your strip' : phase === 'shoot' ? 'shooting' : sentDone ? 'saved' : 'ready to save';
   const shotText = `shot ${Math.min(Math.max(taken, phase === 'shoot' ? 1 : 0), 4)} of 4`;
   const note = t < 4 ? 'trying filters…' : t < 7 ? 'soft pink + polka frame' : 'adding a bow and a heart';
   const shootTitle = count ? 'get ready…' : taken >= 4 ? 'that’s a wrap' : 'smile!';
@@ -290,21 +289,18 @@ export default function Demo() {
 
             {phase === 'send' && (
               <div className="demo-send">
-                <span className="demo-label">email it to</span>
-                <div className="demo-input">
-                  {EMAIL.slice(0, typedLen)}
-                  <span className="demo-caret" style={{ opacity: sentDone ? 0 : t % 2 ? 1 : 0 }} />
-                </div>
+                <span className="demo-label">your strip</span>
+                <div className="demo-input">{FILE}</div>
                 <div
                   className="demo-sendbtn"
                   style={{ background: t >= 23 ? '#D9577A' : '#2B2326', transform: `scale(${t === 24 ? 0.97 : 1})` }}
                 >
-                  {sentDone ? 'sent' : 'send'}
+                  {sentDone ? 'downloaded' : 'download'}
                 </div>
                 {sentDone && (
                   <div className="demo-sent">
-                    <span className="demo-sent-title">sent ♡</span>
-                    <span>check your inbox</span>
+                    <span className="demo-sent-title">saved ♡</span>
+                    <span>check your downloads</span>
                   </div>
                 )}
               </div>

@@ -76,12 +76,3 @@ export function canvasToBlob(c: HTMLCanvasElement, type = 'image/png', quality?:
     c.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode image'))), type, quality),
   );
 }
-
-export function blobToBase64(b: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(b);
-  });
-}

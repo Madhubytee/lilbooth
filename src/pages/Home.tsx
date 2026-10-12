@@ -50,8 +50,8 @@ export default function Home() {
               <em>printed pretty.</em>
             </h1>
             <p className="hero-lede">
-              Design your own strip with filters, frames, stickers and a caption. Then smile for four shots and send it to your
-              inbox.
+              Design your own strip with filters, frames, stickers and a caption. Then smile for four shots and save it to your
+              phone or laptop.
             </p>
             <div className="hero-ctas">
               <Link to="/booth" className="btn btn-ink btn-lg">
@@ -202,8 +202,8 @@ export default function Home() {
                 3
               </span>
               <div>
-                <span className="how-step">send it</span>
-                <span className="how-desc">Email the strip to yourself and your friends, or download the image.</span>
+                <span className="how-step">save it</span>
+                <span className="how-desc">Download your strip as a PNG, plus each photo on its own if you like.</span>
               </div>
             </li>
           </ol>
@@ -212,7 +212,7 @@ export default function Home() {
 
       <footer className="footer">
         <span className="footer-word">lil booth</span>
-        <span>photos stay on your device until you send them</span>
+        <span>your photos never leave your device</span>
       </footer>
     </div>
   );

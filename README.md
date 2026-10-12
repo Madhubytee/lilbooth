@@ -1,33 +1,15 @@
 # lil booth
 
-A cute photobooth in your browser. Design a strip (filter, layout, frame, stickers, caption), take real photos with your webcam through a 3·2·1 countdown, then download the strip or email it to yourself.
+A cute photobooth in your browser. Design a strip (filter, layout, frame, stickers, caption), take real photos with your webcam through a 3·2·1 countdown, then download the strip.
 
-Photos never touch a server until you press **send**, and the server doesn't store them.
+Everything happens on your device. There's no backend, and photos are never uploaded.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # then add your Resend key
-npm run dev
+npm run dev      # http://localhost:5173
 ```
-
-`npm run dev` starts both:
-
-- the Vite frontend on http://localhost:5173
-- the email API on http://localhost:8787 (Vite proxies `/api` to it)
-
-Without a `RESEND_API_KEY`, everything still works except sending email. The send form shows a friendly error.
-
-### Environment variables
-
-| name | what |
-|---|---|
-| `RESEND_API_KEY` | API key from https://resend.com/api-keys |
-| `MAIL_FROM` | sender, e.g. `lil booth <hi@yourdomain.com>`. Must be on a domain you verified in Resend. `onboarding@resend.dev` works for testing but only delivers to your own Resend account email. |
-| `PORT` | API port, default `8787` |
-
-`.env` is gitignored. Never commit it.
 
 ## The camera needs https (or localhost)
 
@@ -38,9 +20,11 @@ Until the user allows the camera, the booth shows an example photo (`public/exam
 ## Production
 
 ```bash
-npm run build   # typechecks and builds to dist/
-npm start       # serves dist/ and /api from one Express server on $PORT
+npm run build    # typechecks and builds to dist/
+npm run preview  # serve the build locally
 ```
+
+`dist/` is a static site. Host it anywhere that serves https (Netlify, Vercel, Cloudflare Pages, GitHub Pages…). Point unknown routes at `index.html` so `/booth` and `/result` work on refresh.
 
 ## How it fits together
 
@@ -57,7 +41,6 @@ src/
     design.ts       layouts, strip geometry, date helpers
     useCamera.ts    permission states, device picker, track cleanup
   state/booth.tsx   React context: design + photos (in memory only)
-server/index.ts     POST /api/send via Resend, with rate limiting and size limits
 ```
 
 ### Filters
@@ -73,22 +56,12 @@ It doesn't use `ctx.filter` (Safari doesn't support it), so every browser gets t
 
 Each shot keeps the unfiltered, mirrored full frame. The strip centre-crops it to the slot's aspect ratio at render time, so you can change the filter, frame, stickers or even the layout after shooting without reshooting.
 
-### Export sizes (PNG at 2x)
+### Downloads
 
-| layout | 1x | exported |
+The result page saves the strip as `lilbooth-YYYY-MM-DD.png`, and can also save each photo on its own as `lilbooth-YYYY-MM-DD-photo-N.jpg`.
+
+| layout | 1x | exported PNG (2x) |
 |---|---|---|
 | strip (4 × 4:3) | 600 × 1884 | 1200 × 3768 |
 | grid (2 × 2 square) | 1200 × 1370 | 2400 × 2740 |
 | trio (3 × 6:5) | 600 × 1596 | 1200 × 3192 |
-
-## Email API
-
-`POST /api/send`
-
-```json
-{ "to": "you@email.com", "strip": "<base64 png>", "fileName": "lilbooth-2026-10-12.png", "photos": ["<base64 jpeg>", "…"] }
-```
-
-- 6 requests per 15 minutes per IP
-- JSON body up to 30 MB, strip up to 15 MB, up to 4 photos of 6 MB each
-- the strip is attached and shown inline (`cid:strip`). Nothing is written to disk.
