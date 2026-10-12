@@ -2,12 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CardEditor from '../components/CardEditor';
 import Logo from '../components/Logo';
+import StickerTray from '../components/StickerTray';
 import { canvasToBlob } from '../lib/capture';
 import { cardPhotos, renderDesign, useCardAssets } from '../lib/card';
 import { fileDate } from '../lib/design';
 import { layouts } from '../lib/templates/index.ts';
 import { useStickerActions } from '../lib/useStickerActions';
 import { useBooth } from '../state/booth';
+
+function useViewport() {
+  const [v, setV] = useState(() => ({ vw: window.innerWidth, vh: window.innerHeight }));
+  useEffect(() => {
+    const on = () => setV({ vw: window.innerWidth, vh: window.innerHeight });
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return v;
+}
 
 function saveBlob(blob: Blob, name: string) {
   const href = URL.createObjectURL(blob);
@@ -31,6 +42,7 @@ export default function Result() {
   const assets = useCardAssets();
   const stickers = useStickerActions(design, updateDesign, assets);
   const complete = photos.slice(0, required).every(Boolean);
+  const { vw, vh } = useViewport();
 
   // the exact canvas on screen: downloads encode this, so export == preview
   const shown = useRef<HTMLCanvasElement | null>(null);
@@ -143,8 +155,8 @@ export default function Result() {
               photos={photos}
               date={shotAt}
               assets={assets}
-              maxWidth={440}
-              maxHeight={660}
+              maxWidth={Math.min(440, vw - 64)}
+              maxHeight={Math.min(660, Math.max(360, vh * 0.7))}
               onRendered={(c) => {
                 shown.current = c;
                 setReady(true);
@@ -153,6 +165,15 @@ export default function Result() {
           ) : (
             <div className="card-loading">developing…</div>
           )}
+          <details className="result-stickers">
+            <summary>add or change stickers</summary>
+            <StickerTray
+              onAdd={stickers.addSticker}
+              onReset={stickers.resetStickers}
+              onClear={stickers.clearStickers}
+              customised={stickers.customised}
+            />
+          </details>
         </section>
 
         <section className="result-side">

@@ -215,7 +215,7 @@ export default function Booth() {
           source={live ? { kind: 'stream', stream: cam.stream! } : { kind: 'image', src: EXAMPLE_THUMB }}
           mirror={live}
           busy={busy}
-          onAddSticker={(f) => stickers.addSticker(f)}
+          onAddSticker={stickers.addSticker}
           onResetStickers={stickers.resetStickers}
           onClearStickers={stickers.clearStickers}
           stickersCustomised={stickers.customised}

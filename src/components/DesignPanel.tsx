@@ -1,12 +1,13 @@
-import { memo, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { Photo } from '../lib/capture';
-import { stickerLabel, type Assets } from '../lib/card';
+import type { Assets } from '../lib/card';
 import { isDouble, LAYOUT_IDS, requiredShots, type Design } from '../lib/design';
 import { FILTERS } from '../lib/filters';
-import { layouts, stickerFiles, templates } from '../lib/templates/index.ts';
+import { layouts, templates } from '../lib/templates/index.ts';
 import type { LayoutId, TemplateId } from '../lib/templates/types.ts';
 import CardCanvas from './CardCanvas';
 import FilterView, { type MediaSource } from './FilterView';
+import StickerTray from './StickerTray';
 
 type Tab = 'filter' | 'layout' | 'frame' | 'stickers' | 'caption';
 const TABS: Tab[] = ['filter', 'layout', 'frame', 'stickers', 'caption'];
@@ -29,9 +30,7 @@ interface Props {
   mirror: boolean;
   /** true while shooting: layout can't change mid-session */
   busy: boolean;
-  onAddSticker: (file: string) => void;
-  /** pointer-drag a sticker from the tray (handled by the card it's dropped on) */
-  onStickerDragStart?: (file: string, e: ReactPointerEvent) => void;
+  onAddSticker: (file: string, at?: { x: number; y: number }) => void;
   onResetStickers: () => void;
   onClearStickers: () => void;
   stickersCustomised: boolean;
@@ -212,32 +211,12 @@ export default function DesignPanel(props: Props) {
           ))}
 
         {tab === 'stickers' && (
-          <>
-            <p className="panel-note">Tap a sticker to add it, or drag it onto your card. Tap it on the card to move, resize or turn it.</p>
-            <div className="tray" role="group" aria-label="Sticker tray">
-              {stickerFiles.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  className="tray-item"
-                  onClick={() => props.onAddSticker(f)}
-                  onPointerDown={(e) => props.onStickerDragStart?.(f, e)}
-                  aria-label={`Add ${stickerLabel(f)}`}
-                  title={stickerLabel(f)}
-                >
-                  <img src={`/stickers/${f}`} alt="" draggable={false} />
-                </button>
-              ))}
-            </div>
-            <div className="panel-actions">
-              <button type="button" className="btn btn-line btn-sm" onClick={props.onResetStickers} disabled={!props.stickersCustomised}>
-                reset stickers
-              </button>
-              <button type="button" className="btn btn-line btn-sm" onClick={props.onClearStickers}>
-                clear all
-              </button>
-            </div>
-          </>
+          <StickerTray
+            onAdd={props.onAddSticker}
+            onReset={props.onResetStickers}
+            onClear={props.onClearStickers}
+            customised={props.stickersCustomised}
+          />
         )}
 
         {tab === 'caption' && (

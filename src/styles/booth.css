@@ -626,3 +626,120 @@
   gap: 8px;
   margin-top: 6px;
 }
+
+/* ---------- sticker editor ---------- */
+
+.sticker-layer {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+.sticker-layer:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+.sticker-live {
+  position: absolute;
+  pointer-events: none;
+  max-width: none;
+}
+.sticker-select {
+  position: absolute;
+  border: 1px solid var(--ink);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+.sticker-select > * {
+  pointer-events: auto;
+}
+.sticker-resize,
+.sticker-rotate,
+.sticker-delete {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  padding: 0;
+  touch-action: none;
+}
+/*
+ * Handles sit fully outside the sticker's box (touching only at the corner) and their
+ * bigger finger-sized hit areas grow outward, so even a tiny sticker's middle stays
+ * free for dragging and pinching.
+ */
+.sticker-resize::before,
+.sticker-rotate::before,
+.sticker-delete::before {
+  content: '';
+  position: absolute;
+}
+.sticker-resize {
+  right: -13px;
+  bottom: -13px;
+  cursor: nwse-resize;
+}
+.sticker-resize::before {
+  inset: -2px -18px -18px -2px;
+}
+.sticker-rotate {
+  left: 50%;
+  top: -30px;
+  margin-left: -6px;
+  cursor: grab;
+}
+.sticker-rotate::before {
+  inset: -18px -14px 0 -14px;
+}
+.sticker-rotate::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 17px;
+  margin-left: -0.5px;
+  background: var(--ink);
+}
+.sticker-delete {
+  right: -19px;
+  top: -19px;
+  width: 18px;
+  height: 18px;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sticker-delete::before {
+  inset: -14px -14px -2px -2px;
+}
+.sticker-delete:focus-visible {
+  outline-offset: 2px;
+}
+
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 60;
+  filter: drop-shadow(0 6px 10px rgba(43, 35, 38, 0.25));
+}
+body.is-dragging-sticker,
+body.is-dragging-sticker * {
+  cursor: grabbing !important;
+}
+.sticker-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}

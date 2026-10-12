@@ -105,3 +105,35 @@
     padding: 40px 16px;
   }
 }
+
+.result-stickers {
+  width: 100%;
+  max-width: 440px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.result-stickers summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.result-stickers summary::-webkit-details-marker {
+  display: none;
+}
+.result-stickers summary::before {
+  content: '+';
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+  align-items: center;
+  justify-content: center;
+  border: var(--border);
+  font-weight: 500;
+}
+.result-stickers[open] summary::before {
+  content: '–';
+}
