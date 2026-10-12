@@ -221,7 +221,6 @@ export default function Booth() {
           stickersCustomised={stickers.customised}
         />
       </main>
-      {stickers.dialog}
     </div>
   );
 }

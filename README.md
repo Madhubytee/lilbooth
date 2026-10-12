@@ -42,7 +42,7 @@ Renders all 10 templates × 6 layouts with `@napi-rs/canvas` and the bundled fon
 src/
   pages/        Home, Booth, Result
   components/   Camera, FilterView, Countdown, DesignPanel, CardCanvas, CardEditor,
-                StickerTray, ConfirmDialog, Demo, HeroCards, Logo
+                StickerTray, Demo, HeroCards, Logo
   lib/
     templates/      10 template configs, layout engine, canvas renderer (renderCard)
     card.ts         renderDesign(): filters + crop each photo, then renderCard. Used by every card on screen and every export
@@ -50,7 +50,7 @@ src/
     capture.ts      grab mirrored video frames, centre-crop to the layout's window, cache filtered crops
     design.ts       design state, layouts/shot counts, date helpers
     useCamera.ts    permission states, device picker, track cleanup
-    useStickerActions.tsx  add/reset/clear stickers, "switch template?" dialog
+    useStickerActions.ts   add/reset/clear stickers, template switching
   state/booth.tsx   React context: design + up to 8 photos (in memory only)
   styles/fonts.css  @font-face for the bundled fonts (shared by UI and canvas)
 public/
@@ -76,7 +76,7 @@ lil booth's changes to the package renderer: a `hideDate` option, no placeholder
 
 ### Stickers
 
-Positions are stored as fractions of the card (`x`, `y` of width/height, `width` of card width), so they stay put at any preview size and at 1800px or 3600px export. Select a sticker to bring it to the front; drag to move, corner handle to resize, top handle to rotate, square button to delete. Two fingers pinch to resize and twist. Keyboard: focus the card, Enter cycles stickers, arrows nudge (Shift for bigger steps), + / − resize, [ ] rotate, Delete removes, Escape deselects. Drag from the tray onto the card (on touch, press and hold first).
+Positions are stored as fractions of the card (`x`, `y` of width/height, `width` of card width), so they stay put at any preview size and at 1800px or 3600px export. Select a sticker to bring it to the front; drag to move, corner handle to resize, top handle to rotate, square button to delete. Two fingers pinch to resize and twist. Keyboard: focus the card, Enter cycles stickers, arrows nudge (Shift for bigger steps), + / − resize, [ ] rotate, Delete removes, Escape deselects. Drag from the tray onto the card (on touch, press and hold first). Switching templates swaps in the new template's default stickers and keeps the ones you added.
 
 ### Photos
 

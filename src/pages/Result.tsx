@@ -222,7 +222,6 @@ export default function Result() {
           <p className="fine">Your photos never leave this device unless you share them.</p>
         </section>
       </main>
-      {stickers.dialog}
     </div>
   );
 }
