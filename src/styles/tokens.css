@@ -1,0 +1,26 @@
+:root {
+  --ink: #2b2326;
+  --muted: #6e6266;
+  --line: #eee7e8;
+  --line-2: #e6dedf;
+  --paper: #ffffff;
+  --soft: #fbf8f7;
+  --cam: #f3eeec;
+  --pink: #f4a7b9;
+  --deep-pink: #d9577a;
+  --deep-pink-text: #c9446a;
+  --blush: #fde8ed;
+  --butter: #ffe29a;
+  --sky: #a9d3f5;
+  --mint: #bfe6cf;
+
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Courier New', Courier, monospace;
+
+  --border: 1.5px solid var(--ink);
+  --offset-shadow: 10px 10px 0 var(--pink);
+  --paper-shadow: 0 16px 34px rgba(43, 35, 38, 0.12);
+
+  color-scheme: light;
+}
